@@ -3,30 +3,232 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Wordpath</title>
+  <title>Wordpath Game</title>
   <style>
-    /*
-      The following styles ensure that the only visible content on the page is the word
-      "Wordpath" in large, bold letters centered horizontally at the top of the page.
-      The body is given a margin to prevent the text from hugging the very top edge of
-      the browser window.
-    */
+    /* Global styling and responsive layout */
+    :root {
+      --bg-color: #f7f7f7;
+      --text-color: #222222;
+      --accent-color: #203869;
+      --error-color: #c0392b;
+      --success-color: #27ae60;
+    }
+
     body {
       margin: 0;
+      padding: 0 1rem;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
       display: flex;
-      justify-content: center;
-      align-items: flex-start;
+      flex-direction: column;
       min-height: 100vh;
     }
+
     h1 {
-      font-size: 3rem;
-      font-weight: bold;
-      margin-top: 2rem;
+      text-align: center;
+      font-size: 2.75rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--accent-color);
+    }
+
+    .game-container {
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+      padding: 1.5rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .instructions {
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+
+    .path {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1rem 0;
+      overflow-y: auto;
+      max-height: 200px;
+    }
+
+    .path li {
+      padding: 0.4rem 0;
+      font-size: 1.2rem;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .input-area {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .input-area input[type="text"] {
+      flex: 1;
+      padding: 0.6rem 0.8rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .input-area button {
+      padding: 0.6rem 1rem;
+      font-size: 1rem;
+      background-color: var(--accent-color);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .input-area button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .message {
+      margin-top: 0.75rem;
+      min-height: 1.2rem;
+    }
+
+    .message.error {
+      color: var(--error-color);
+    }
+
+    .message.success {
+      color: var(--success-color);
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 2.2rem;
+      }
+      .game-container {
+        padding: 1rem;
+      }
     }
   </style>
 </head>
 <body>
   <h1>Wordpath</h1>
+  <div class="game-container">
+    <div class="instructions">
+      <p>Transform the start word to the end word by changing <strong>one letter at a time</strong>. Each intermediate word must be a valid English word. Try to reach the end word in as few steps as possible.</p>
+      <p><strong>Start:</strong> <span id="start-word"></span><br>
+      <strong>End:</strong> <span id="end-word"></span></p>
+    </div>
+    <ul class="path" id="path-list"></ul>
+    <div class="input-area">
+      <input type="text" id="word-input" placeholder="Enter next 5‑letter word" autocomplete="off" maxlength="5" />
+      <button id="submit-btn">Submit</button>
+    </div>
+    <div class="message" id="message"></div>
+  </div>
+
+  <script>
+    (function () {
+      // Core configuration
+      const startWord = 'SHARE';
+      const endWord = 'CHORD';
+      // A small dictionary of valid five-letter words for demonstration purposes.
+      // In a production environment you would replace or augment this list with a
+      // comprehensive word list to allow more user creativity.
+      const wordList = new Set([
+        'share','shard','shire','shear','shore','smore','smear','spear','spare','spore',
+        'score','scare','shore','chore','chard','chord','chair','chain','chair','choke','chore',
+        'shore','share','store','stone','stoke','smoke','smote','shote','shote','shine','shone',
+        'chose','chase','chase','phase','chare','chard','shard','spine','spine','spiny','shine',
+        'shiny','scorn','score','scare','snore','scone','scrod','shred','shrew','shier','shier'
+      ]);
+
+      const pathList = document.getElementById('path-list');
+      const input = document.getElementById('word-input');
+      const submitBtn = document.getElementById('submit-btn');
+      const messageDiv = document.getElementById('message');
+      document.getElementById('start-word').textContent = startWord;
+      document.getElementById('end-word').textContent = endWord;
+
+      let currentWord = startWord.toLowerCase();
+      // Initialize the path with the start word
+      const path = [currentWord];
+      renderPath();
+
+      // Helper to compute if two words differ by exactly one letter
+      function differByOneLetter(a, b) {
+        if (a.length !== b.length) return false;
+        let diff = 0;
+        for (let i = 0; i < a.length; i++) {
+          if (a[i] !== b[i]) diff++;
+          if (diff > 1) return false;
+        }
+        return diff === 1;
+      }
+
+      function renderPath() {
+        pathList.innerHTML = '';
+        path.forEach(word => {
+          const li = document.createElement('li');
+          li.textContent = word.toUpperCase();
+          pathList.appendChild(li);
+        });
+      }
+
+      function setMessage(msg, type = '') {
+        messageDiv.textContent = msg;
+        messageDiv.className = 'message ' + type;
+      }
+
+      submitBtn.addEventListener('click', handleSubmit);
+      input.addEventListener('keyup', function (e) {
+        if (e.key === 'Enter') {
+          handleSubmit();
+        }
+      });
+
+      function handleSubmit() {
+        const value = input.value.trim().toLowerCase();
+        if (value.length !== 5) {
+          setMessage('Please enter a 5-letter word.', 'error');
+          return;
+        }
+        if (!wordList.has(value)) {
+          setMessage('That word is not in the dictionary.', 'error');
+          return;
+        }
+        const lastWord = path[path.length - 1];
+        if (!differByOneLetter(lastWord, value)) {
+          setMessage('Your word must differ by exactly one letter from the previous word.', 'error');
+          return;
+        }
+        // Prevent revisiting the same word
+        if (path.includes(value)) {
+          setMessage('You have already used that word.', 'error');
+          return;
+        }
+        // Add valid word to the path
+        path.push(value);
+        renderPath();
+        input.value = '';
+        // Check for success
+        if (value === endWord.toLowerCase()) {
+          setMessage('Congratulations! You reached the end word.', 'success');
+          submitBtn.disabled = true;
+          input.disabled = true;
+        } else {
+          setMessage('Good move! Keep going.', '');
+        }
+      }
+    })();
+  </script>
 </body>
 </html>
